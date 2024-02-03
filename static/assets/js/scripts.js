@@ -24,3 +24,28 @@ document.addEventListener('DOMContentLoaded', function () {
     });
 });
 
+document.addEventListener('DOMContentLoaded', function () {
+    var starsRange = document.getElementById('stars');
+    var starsLabel = document.querySelector('label[for="stars"]');
+
+    // Initialize stars display
+    starsLabel.innerHTML = generateStars(starsRange.value);
+
+    // Add input event listener to stars range slider
+    starsRange.addEventListener('input', function () {
+        // Update stars display based on the range slider value
+        starsLabel.innerHTML = generateStars(this.value);
+    });
+
+    // Function to generate HTML for stars based on the selected value
+    function generateStars(value) {
+        var starsHTML = '';
+        for (var i = 0; i < value; i++) {
+            starsHTML += '⭐';
+        }
+        return starsHTML;
+    }
+});
+
+
+

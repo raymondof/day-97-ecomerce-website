@@ -1,4 +1,4 @@
-from flask import Flask, render_template, redirect, url_for, flash
+from flask import Flask, render_template, redirect, url_for, flash, jsonify
 from flask_bootstrap import Bootstrap5
 from flask_ckeditor import CKEditor
 from datetime import date
@@ -44,6 +44,10 @@ class Product(db.Model):
     on_sale = db.Column(db.Boolean, nullable=False)
     sale_price = db.Column(db.Float, nullable=True)
     stars = db.Column(db.Integer)
+    colour = db.Column(db.String(100), nullable=False)
+    product_id = db.Column(db.String(100), nullable=False)
+    description = db.Column(db.String(100), nullable=True)
+    category = db.Column(db.String(100), nullable=True)
 
 class ShoppingCart(db.Model):
     __tablename__ = "shopping_cart"
@@ -82,6 +86,41 @@ def admin_only(function):
 def main():
     all_products = Product.query.all()
     return render_template("index.html", products=all_products)
+
+@app.route('/cart')
+def cart():
+    user_id = current_user.id
+    # products_in_cart = ShoppingCart.query.filter_by(user_id=user_id)
+    # prod_product = Product.query.filter_by()
+    cart_items = db.session.query(ShoppingCart, Product).join(Product, Product.id == ShoppingCart.product_id).filter(ShoppingCart.user_id == user_id).all()
+    # Calculate total price
+    normal_price = sum(cart_item.quantity * product.price for cart_item, product in cart_items)
+    # Calculate total price and sale price
+    total_price = sum(cart_item.quantity * (product.sale_price if product.on_sale else product.price) for cart_item, product in cart_items)
+    savings = normal_price - total_price
+
+    return render_template("cart.html", cart_items=cart_items,
+                           subtotal=total_price, savings=savings)
+
+@app.route('/add-to-cart/<int:product_id>', methods=["GET", "POST"])
+def add_to_cart(product_id):
+    user_id = current_user.id
+    print(user_id)
+    new_prod_to_cart = ShoppingCart(product_id=product_id, user_id=user_id, quantity=1)
+    db.session.add(new_prod_to_cart)
+    db.session.commit()
+
+    # Return a JSON response indicating success
+    return jsonify({'success': True})
+
+@app.route("/product/<int:product_id>", methods=["GET", "POST"])
+def product(product_id):
+    selected_product = Product.query.get(product_id)
+    selected_product_category = selected_product.category
+    category_count = len(Product.query.filter_by(category=selected_product_category).all())
+    all_products = Product.query.all()
+    return render_template("product.html", product=selected_product, category_count=category_count,
+                           all_products=all_products)
 
 @app.route('/register', methods=["GET", "POST"])
 def register():
@@ -123,6 +162,10 @@ def add_new_product():
         on_sale = new_product_form.on_sale.data
         sale_price = new_product_form.sale_price.data
         stars = new_product_form.stars.data
+        colour = new_product_form.colour.data
+        product_id = new_product_form.product_id.data
+        description = new_product_form.description.data
+        category = new_product_form.category.data
 
 
         if User.query.filter_by(name=name).first():
@@ -131,7 +174,9 @@ def add_new_product():
         else:
             with app.app_context():
                 new_product = Product(name=name, price=price, pic_url=pic_url,
-                                on_sale=on_sale, stars=stars, sale_price=sale_price)
+                                      on_sale=on_sale, stars=stars, sale_price=sale_price,
+                                      colour=colour, product_id=product_id, description=description,
+                                      category=category)
                 db.session.add(new_product)
                 db.session.commit()
 

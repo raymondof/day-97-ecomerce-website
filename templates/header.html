@@ -43,13 +43,18 @@
                         <li class="nav-item"><a class="nav-link" href="{{ url_for('add_new_product') }}">Add new product</a></li>
                         {% endif %}
                     </ul>
-                    <form class="d-flex">
+                    {% if current_user.is_authenticated %}
+                    <div class="px-4 px-lg-5 align-middle">
+                        <p>Logged in as {{ current_user.name }}</p>
+                    </div>
+                    {% endif %}
+                    <a href="{{ url_for('cart') }}">
                         <button class="btn btn-outline-dark" type="submit">
                             <i class="bi-cart-fill me-1"></i>
                             Cart
                             <span class="badge bg-dark text-white ms-1 rounded-pill">0</span>
                         </button>
-                    </form>
+                    </a>
                 </div>
             </div>
         </nav>

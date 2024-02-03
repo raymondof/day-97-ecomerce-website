@@ -20,11 +20,17 @@ class LoginForm(FlaskForm):
     submit = SubmitField("Login")
 
 class NewProductForm(FlaskForm):
-    name = StringField("Name", validators=[DataRequired()])
-    pic_url = URLField("URL for picture", validators=[DataRequired()])
-    price = IntegerField("Price", validators=[DataRequired()])
+    name = StringField("Name*", validators=[DataRequired()])
+    pic_url = URLField("URL for picture*", validators=[DataRequired()])
+    colour = StringField("Colour*", validators=[DataRequired()])
+    product_id = StringField("Product ID*", validators=[DataRequired()])
+    category = StringField("Category*", validators=[DataRequired()])
+    price = IntegerField("Price*", validators=[DataRequired()])
     on_sale = BooleanField("Product on sale?", default=False)
     sale_price = IntegerField("Price on sale", validators=[Optional()])
-    stars = IntegerRangeField("Stars 0-5", validators=[NumberRange(min=0, max=5)])
+    stars = IntegerRangeField("Stars*", validators=[NumberRange(min=0, max=5)])
+    description = StringField("Description", validators=[Optional()], default="Lorem ipsum dolor sit amet consectetur adipisicing elit. Praesentium at dolorem quidem modi. Nam sequi consequatur obcaecati excepturi alias magni, accusamus eius blanditiis delectus ipsam minima ea iste laborum vero?")
+
+
     submit = SubmitField("Add product")
-    #TODO: add product id and product description
+    #TODO: add product category

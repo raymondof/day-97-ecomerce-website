@@ -1,0 +1,64 @@
+{% block content %}
+{% include "header.html" %}
+
+<h1 class="text-center pt-5 mt-5">Shopping cart</h1>
+
+<body>
+  <div class="container-fluid">
+    <div class="row">
+      <!-- Left column - Selected products -->
+      <div class="col-md-6">
+        <section class="py-5">
+          <div class="container px-4 px-lg-5 mt-5 flex-fill">
+            <div class="row gx-4 gx-lg-5 row-cols-2 row-cols-md-3 row-cols-xl-4 justify-content-center">
+              {% for cart_item, product in cart_items %}
+                <!-- Your product card code goes here -->
+                <div class="col mb-5">
+                      <div class="card h-100">
+                          <img class="card-img-top" src="{{ product.pic_url }}" alt="..." />
+                          <h6 class="fw-bolder">{{ product.name }}</h6>
+                          <!-- Product price-->
+                          {% if product.on_sale %}
+                              <span class="text-muted text-decoration-line-through">${{ product.price }}</span>
+                              ${{ product.sale_price }}
+
+                          {% else %}
+                              ${{ product.price }}
+                          {% endif %}
+                          <!-- Other product details here -->
+                          <p>Quantity: {{ cart_item.quantity }}</p>
+                      </div>
+
+                  <!-- ... -->
+                </div>
+              {% endfor %}
+            </div>
+          </div>
+        </section>
+      </div>
+
+      <!-- Vertical line divider -->
+      <div class="col-md-1 align-middle" style="border-right: 1px solid #ddd;"></div>
+
+      <!-- Right column - Subtotal, Total Savings, Checkout, Continue Shopping -->
+      <div class="col-md-5">
+        <div class="p-4">
+          <!-- Subtotal -->
+          <h2 class="mb-3">Subtotal: ${{ subtotal }}</h2>
+          <!-- Total Savings -->
+          <p>Total Savings: ${{ savings }}</p>
+          <!-- Checkout button -->
+          <button class="btn btn-dark btn-lg mb-3">Checkout</button>
+          <!-- Continue Shopping button -->
+          <a href="{{ url_for('main') }}">
+            <button class="btn btn-outline-dark btn-lg">Continue Shopping</button>
+          </a>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</body>
+
+{% include "footer.html" %}
+{% endblock %}
