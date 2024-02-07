@@ -10824,3 +10824,9 @@ textarea.form-control-lg {
     display: none !important;
   }
 }
+
+.NewProductForm { margin-bottom: 100px; }
+
+.h1Title {
+  margin-top: 150px;
+}

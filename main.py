@@ -1,4 +1,4 @@
-from flask import Flask, render_template, redirect, url_for, flash, jsonify
+from flask import Flask, render_template, redirect, url_for, flash, jsonify, request
 from flask_bootstrap import Bootstrap5
 from flask_ckeditor import CKEditor
 from datetime import date
@@ -9,10 +9,17 @@ from flask_login import UserMixin, login_user, LoginManager, login_required, cur
 from forms import RegisterForm, LoginForm, NewProductForm
 from functools import wraps
 import os
+import stripe
+import json
+
+
+stripe.api_key = os.environ["STRIPE_API_KEY_TEST1"]
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = os.environ["SECRET_KEY"]
 bootstrap = Bootstrap5(app)
+
+YOUR_DOMAIN = 'http://localhost:4242'
 
 ##CONNECT TO DB
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///ecom.db'
@@ -48,6 +55,8 @@ class Product(db.Model):
     product_id = db.Column(db.String(100), nullable=False)
     description = db.Column(db.String(100), nullable=True)
     category = db.Column(db.String(100), nullable=True)
+    stripe_product_id = db.Column(db.String(100), nullable=True)
+
 
 class ShoppingCart(db.Model):
     __tablename__ = "shopping_cart"
@@ -87,12 +96,25 @@ def main():
     all_products = Product.query.all()
     return render_template("index.html", products=all_products)
 
-@app.route('/cart')
-def cart():
+@app.route('/products-by-category/<string:category>')
+def products_by_category(category):
+    products_in_category = Product.query.filter_by(category=category)
+    return render_template("index.html", products=products_in_category)
+
+@app.route('/about')
+def about():
+    return render_template("about.html")
+
+def get_cart_items():
     user_id = current_user.id
     # products_in_cart = ShoppingCart.query.filter_by(user_id=user_id)
     # prod_product = Product.query.filter_by()
     cart_items = db.session.query(ShoppingCart, Product).join(Product, Product.id == ShoppingCart.product_id).filter(ShoppingCart.user_id == user_id).all()
+    return cart_items
+
+@app.route('/cart')
+def cart():
+    cart_items = get_cart_items()
     # Calculate total price
     normal_price = sum(cart_item.quantity * product.price for cart_item, product in cart_items)
     # Calculate total price and sale price
@@ -106,12 +128,146 @@ def cart():
 def add_to_cart(product_id):
     user_id = current_user.id
     print(user_id)
-    new_prod_to_cart = ShoppingCart(product_id=product_id, user_id=user_id, quantity=1)
-    db.session.add(new_prod_to_cart)
+
+    existing_item = ShoppingCart.query.filter_by(user_id=user_id, product_id=product_id).first()
+
+    if existing_item:
+        # If the item already exists in the cart, increase its quantity
+        existing_item.quantity += 1
+    else:
+        # If the item is not in the cart, create a new entry
+        new_item = ShoppingCart(product_id=product_id, user_id=user_id, quantity=1)
+        db.session.add(new_item)
+
     db.session.commit()
+
+    # new_prod_to_cart = ShoppingCart(product_id=product_id, user_id=user_id, quantity=1)
+    # db.session.add(new_prod_to_cart)
+    # db.session.commit()
 
     # Return a JSON response indicating success
     return jsonify({'success': True})
+
+
+@app.route('/change-item-quantity/<int:product_id>', methods=["GET", "POST"])
+def change_item_quantity(product_id):
+    new_quantity = int(request.form['quantity-input'])
+    print(f"new_quantity {new_quantity}")
+    with app.app_context():
+        quantity_to_update = ShoppingCart.query.filter_by(product_id=product_id).first()
+        if new_quantity > 0:
+            quantity_to_update.quantity = new_quantity
+        else:
+            db.session.delete(quantity_to_update)
+        db.session.commit()
+
+    return redirect(url_for("cart"))
+
+@app.route('/get-cart-count')
+def get_cart_count():
+    # Get the current user's cart
+    cart_items = get_cart_items()
+    # and count from the database
+    cart_count = sum(cart_item.quantity for cart_item, product in cart_items)
+
+    return jsonify({'cart_count': cart_count})
+
+
+def add_all_products_to_stripe():
+    # Get list of product names from Stripe and put them in a list
+    products_in_stripe = stripe.Product.list()
+    stripe_prod_names = []
+    [stripe_prod_names.append(product["name"]) for product in products_in_stripe.data if product["name"] not in stripe_prod_names]
+
+    # Query products from database
+    with app.app_context():
+        all_products = Product.query.all()
+
+    # Then add product to Stripe if it does not already exist there
+    for product in all_products:
+        #product = all_products
+        if product.name not in stripe_prod_names:
+            if product.on_sale:
+                product_price = int(product.sale_price)
+            else:
+                product_price = int(product.price)
+            new_product = stripe.Product.create(
+                name=product.name,
+                images=[product.pic_url],
+                description=product.description,
+                default_price_data={
+                    "currency":"EUR",
+                    "unit_amount":product_price * 100,
+                }
+            )
+
+
+# add_all_products_to_stripe()
+
+def add_stripe_ids_to_products():
+    # Get list of product names from Stripe and put them in a dictionary "name":"id"
+    products_in_stripe = stripe.Product.list()
+    stripe_prod_dict = {product["name"]:product["default_price"] for product in products_in_stripe.data}
+
+    # Query products from database to check if the product is existing
+    # if it is existing query the product by name, update the stripe_product_id
+    with app.app_context():
+        all_products = Product.query.all()
+        for prod_name, id in stripe_prod_dict.items():
+            if any(product.name == prod_name for product in all_products):
+                product_to_update = Product.query.filter_by(name=prod_name).first()
+                product_to_update.stripe_product_id = id
+                db.session.commit()
+
+add_stripe_ids_to_products()
+
+@app.route('/checkout.html')
+def checkout():
+    return render_template('checkout.html')
+
+@app.route('/return.html')
+def return_page():
+    return render_template('return.html')
+
+
+
+@app.route('/create-checkout-session', methods=['POST'])
+def create_checkout_session():
+    # Get items from the cart of the current user
+    cart_items = get_cart_items()
+
+    # Iterate over each tuple (cart_item) in cart_items
+    # Each cart_item is a tuple containing a ShoppingCart object and a Product object
+    product_id_list = [
+        # Constructing a dictionary for each cart_item
+        {
+            # Accessing the stripe_product_id attribute of the Product object within the tuple
+            "price": cart_item[1].stripe_product_id,
+            # Accessing the quantity attribute of the ShoppingCart object within the tuple
+            "quantity": cart_item[0].quantity
+        }
+        # Iterating over each tuple (cart_item) in cart_items
+        for cart_item in cart_items
+    ]
+
+    try:
+        session = stripe.checkout.Session.create(
+            ui_mode = 'embedded',
+            line_items=product_id_list,
+            mode='payment',
+            return_url=YOUR_DOMAIN + '/return.html?session_id={CHECKOUT_SESSION_ID}',
+        )
+    except Exception as e:
+        return str(e)
+
+    return jsonify(clientSecret=session.client_secret)
+
+@app.route('/session-status', methods=['GET'])
+def session_status():
+  session = stripe.checkout.Session.retrieve(request.args.get('session_id'))
+
+  return jsonify(status=session.status, customer_email=session.customer_details.email,
+                 customer_name=session.customer_details.name)
 
 @app.route("/product/<int:product_id>", methods=["GET", "POST"])
 def product(product_id):
@@ -180,6 +336,25 @@ def add_new_product():
                 db.session.add(new_product)
                 db.session.commit()
 
+                if on_sale:
+                    product_price = int(sale_price)
+                else:
+                    product_price = int(price)
+                print(f"name: {name}, images: {pic_url}, description: {description}, product_price: {product_price}")
+                new_product_to_stripe = stripe.Product.create(
+                    name=name,
+                    images=[pic_url],
+                    description=description,
+                    default_price_data={
+                        "currency": "EUR",
+                        "unit_amount": product_price * 100,
+                    }
+                )
+
+                product_to_update = Product.query.filter_by(name=name).first()
+                product_to_update.stripe_product_id = new_product_to_stripe.default_price
+                db.session.commit()
+
             return redirect(url_for("main"))
     return render_template("add_new_product.html", form=new_product_form)
 
@@ -215,6 +390,6 @@ def load_user(user_id):
 
 if __name__ == "__main__":
     # app.run(host='0.0.0.0', port=5050, debug=True)
-    app.run(port=5050, debug=True)
+    app.run(port=4242, debug=True)
 
 

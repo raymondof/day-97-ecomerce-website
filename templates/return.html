@@ -1,0 +1,24 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Thanks for your order!</title>
+  <link rel="stylesheet" href="style.css">
+  <script src="./static/assets/js/return.js" defer></script>
+</head>
+<body>
+<!-- Navigation-->
+{% include "header.html" %}
+  <section id="success" class="hidden">
+    <h1 class="h1Title text-center mb-5">Thank you for your order <span id="customer-name"></span>!</h1>
+    <p class="text-center">
+      We appreciate your business! A confirmation email will be sent to <span id="customer-email"></span>.
+    </p>
+    <br>
+    <p class="text-center">
+      If you have any questions, please email <a href="mailto:orders@example.com">orders@example.com</a>.
+    </p>
+  </section>
+<!-- Footer-->
+{% include "footer.html" %}
+</body>
+</html>

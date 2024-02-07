@@ -4,7 +4,7 @@
 <h1 class="text-center pt-5 mt-5">Shopping cart</h1>
 
 <body>
-  <div class="container-fluid">
+  <div class="container-fluid mb-5">
     <div class="row">
       <!-- Left column - Selected products -->
       <div class="col-md-6">
@@ -12,10 +12,12 @@
           <div class="container px-4 px-lg-5 mt-5 flex-fill">
             <div class="row gx-4 gx-lg-5 row-cols-2 row-cols-md-3 row-cols-xl-4 justify-content-center">
               {% for cart_item, product in cart_items %}
-                <!-- Your product card code goes here -->
+                <!-- Product card code goes here -->
                 <div class="col mb-5">
                       <div class="card h-100">
-                          <img class="card-img-top" src="{{ product.pic_url }}" alt="..." />
+                          <a href="{{ url_for('product', product_id=product.id) }}">
+                                <img class="card-img-top" src="{{ product.pic_url }}" alt="..." />
+                          </a>
                           <h6 class="fw-bolder">{{ product.name }}</h6>
                           <!-- Product price-->
                           {% if product.on_sale %}
@@ -26,7 +28,10 @@
                               ${{ product.price }}
                           {% endif %}
                           <!-- Other product details here -->
-                          <p>Quantity: {{ cart_item.quantity }}</p>
+                          <form id="quantity-form" action="{{ url_for('change_item_quantity', product_id=cart_item.product_id) }}" method="POST">
+                            <input id="quantity-input" class="form-control" type="number" name="quantity-input" value="{{ cart_item.quantity }}" min="0">
+                          </form>
+
                       </div>
 
                   <!-- ... -->
@@ -48,15 +53,49 @@
           <!-- Total Savings -->
           <p>Total Savings: ${{ savings }}</p>
           <!-- Checkout button -->
-          <button class="btn btn-dark btn-lg mb-3">Checkout</button>
+            <a href="{{ url_for('checkout') }}">
+                <button class="btn btn-dark btn-lg mb-3">Checkout</button>
+            </a>
+            <br>
           <!-- Continue Shopping button -->
-          <a href="{{ url_for('main') }}">
-            <button class="btn btn-outline-dark btn-lg">Continue Shopping</button>
-          </a>
+            <hr class="my-0 mb-1" style="width: 200px; background-color: #ddd;">
+                <a href="{{ url_for('main') }}">Continue Shopping</a>
+            <hr class="my-0 mt-2" style="width: 200px; background-color: #ddd;">
         </div>
       </div>
     </div>
   </div>
+    <!-- JavaScript code -->
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+    var quantityInputs = document.querySelectorAll('.quantity-input');
+    quantityInputs.forEach(function(quantityInput) {
+        quantityInput.addEventListener('input', function(event) {
+            var newValue = parseInt(quantityInput.value);
+            if (!isNaN(newValue)) {
+                var min = parseInt(quantityInput.min);
+                var max = parseInt(quantityInput.max);
+                if (newValue < min) {
+                    newValue = min;
+                } else if (newValue > max) {
+                    newValue = max;
+                }
+                quantityInput.value = newValue;
+                // Submit the form after updating the input field
+                quantityInput.closest('form').submit();
+            }
+        });
+    });
+});
+
+
+        var quantityInput = document.getElementById('quantity-input');
+        quantityInput.addEventListener('input', function(event) {
+            console.log('Input field value:', quantityInput.value);
+            // Add other debug logs as needed
+            // Your existing code follows...
+        });
+    </script>
 
 </body>
 

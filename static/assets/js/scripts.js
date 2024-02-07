@@ -47,5 +47,87 @@ document.addEventListener('DOMContentLoaded', function () {
     }
 });
 
+document.addEventListener('DOMContentLoaded', function() {
+    var quantityInput = document.getElementById('quantity-input');
+    quantityInput.addEventListener('input', function(event) {
+        var newValue = parseInt(quantityInput.value);
+        if (!isNaN(newValue)) {
+            var min = parseInt(quantityInput.min);
+            var max = parseInt(quantityInput.max);
+            if (newValue < min) {
+                newValue = min;
+            } else if (newValue > max) {
+                newValue = max;
+            }
+            quantityInput.value = newValue;
+            // Submit the form after updating the input field
+            document.getElementById('quantity-form').submit();
+        }
+    });
+});
+
+
+
+document.addEventListener('DOMContentLoaded', function() {
+    updateCartCount(); // Update the cart count when the page loads
+
+    // Function to update the cart count
+    function updateCartCount() {
+        // Perform an AJAX request to fetch the current cart count from the server
+        // You need to implement this AJAX request endpoint in your Flask application
+        fetch('/get-cart-count')
+            .then(response => response.json())
+            .then(data => {
+                // Update the cart count in the header
+                document.getElementById('cart-count').textContent = data.cart_count;
+            })
+            .catch(error => {
+                console.error('Error fetching cart count:', error);
+            });
+    }
+});
+
+document.addEventListener('DOMContentLoaded', function() {
+    var quantityInputs = document.querySelectorAll('.quantity-input');
+    console.log('Found quantity inputs:', quantityInputs);
+    quantityInputs.forEach(function(quantityInput) {
+        quantityInput.addEventListener('input', function(event) {
+            console.log('Input field value:', quantityInput.value);
+            // Add other debug logs as needed
+            // Your existing code follows...
+        });
+    });
+});
+
+// script.js
+
+$(document).ready(function() {
+    $('.add-to-cart-btn').click(function(event) {
+        event.preventDefault(); // Prevent the default form submission
+
+        // Get the product ID from the data attribute of the button
+        var productId = $(this).data('product-id');
+
+        // Make an AJAX request to your Flask route
+        $.ajax({
+            type: 'POST',
+            url: '/add-to-cart/' + productId,
+            success: function(response) {
+                // Handle the success response here, for example, you could display a success message
+                alert('Item added to cart successfully!');
+            },
+            error: function(xhr, status, error) {
+                // Handle any errors that occur during the AJAX request
+                console.error(error);
+                alert('An error occurred while adding the item to the cart.');
+            }
+        });
+    });
+});
+
+
+
+
+
 
 
