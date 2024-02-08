@@ -66,37 +66,7 @@
       </div>
     </div>
   </div>
-    <!-- JavaScript code -->
-    <script>
-        document.addEventListener('DOMContentLoaded', function() {
-    var quantityInputs = document.querySelectorAll('.quantity-input');
-    quantityInputs.forEach(function(quantityInput) {
-        quantityInput.addEventListener('input', function(event) {
-            var newValue = parseInt(quantityInput.value);
-            if (!isNaN(newValue)) {
-                var min = parseInt(quantityInput.min);
-                var max = parseInt(quantityInput.max);
-                if (newValue < min) {
-                    newValue = min;
-                } else if (newValue > max) {
-                    newValue = max;
-                }
-                quantityInput.value = newValue;
-                // Submit the form after updating the input field
-                quantityInput.closest('form').submit();
-            }
-        });
-    });
-});
 
-
-        var quantityInput = document.getElementById('quantity-input');
-        quantityInput.addEventListener('input', function(event) {
-            console.log('Input field value:', quantityInput.value);
-            // Add other debug logs as needed
-            // Your existing code follows...
-        });
-    </script>
 
 </body>
 

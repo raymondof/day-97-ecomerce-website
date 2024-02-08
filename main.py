@@ -1,20 +1,22 @@
 from flask import Flask, render_template, redirect, url_for, flash, jsonify, request, session
 from flask_bootstrap import Bootstrap5
-from flask_ckeditor import CKEditor
-from datetime import date
 from werkzeug.security import generate_password_hash, check_password_hash
 from flask_sqlalchemy import SQLAlchemy
-from sqlalchemy.orm import relationship
-from flask_login import UserMixin, login_user, LoginManager, login_required, current_user, logout_user
+from flask_login import UserMixin, login_user, LoginManager, current_user, logout_user
 from forms import RegisterForm, LoginForm, NewProductForm
 from functools import wraps
 import os
 import stripe
-import json
 from uuid import uuid4
+from email.mime.multipart import MIMEMultipart
+from email.mime.text import MIMEText
+from email.mime.image import MIMEImage
+import smtplib
 
 
-stripe.api_key = os.environ["STRIPE_API_KEY_TEST1"]
+stripe.api_key = os.environ["STRIPE_API_KEY_LIVE"]
+MY_EMAIL = os.environ["MY_EMAIL"]
+MY_PASSWORD = os.environ["MY_PASSWORD"]
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = os.environ["SECRET_KEY"]
@@ -121,14 +123,18 @@ def get_cart_items():
     cart_items = db.session.query(ShoppingCart, Product).join(Product, Product.id == ShoppingCart.product_id).filter(ShoppingCart.user_id == user_id).all()
     return cart_items
 
-@app.route('/cart')
-def cart():
-    cart_items = get_cart_items()
+def calculate_savings(cart_items):
     # Calculate total price
     normal_price = sum(cart_item.quantity * product.price for cart_item, product in cart_items)
     # Calculate total price and sale price
     total_price = sum(cart_item.quantity * (product.sale_price if product.on_sale else product.price) for cart_item, product in cart_items)
     savings = normal_price - total_price
+    return total_price, savings
+
+@app.route('/cart')
+def cart():
+    cart_items = get_cart_items()
+    total_price, savings = calculate_savings(cart_items)
 
     return render_template("cart.html", cart_items=cart_items,
                            subtotal=total_price, savings=savings)
@@ -253,11 +259,38 @@ add_stripe_ids_to_products()
 def checkout():
     return render_template('checkout.html')
 
+# @app.route('/return.html')
+# def return_page():
+#     cart_items = get_cart_items()
+#     total_price, savings = calculate_savings(cart_items)
+#     send_email(MY_EMAIL, cart_items, total_price, savings)
+#     empty_cart()
+#     return render_template('return.html')
+
+
 @app.route('/return.html')
 def return_page():
-    empty_cart()
-    return render_template('return.html')
+    # Retrieve Stripe Checkout session ID from the request parameters
+    session_id = request.args.get('session_id')
 
+    # Retrieve session details from Stripe
+    session = stripe.checkout.Session.retrieve(session_id)
+
+    # Extract customer email and name from session
+    customer_email = session.customer_details.email
+    customer_name = session.customer_details.name
+
+    # Get cart items and calculate total price and savings
+    cart_items = get_cart_items()
+    total_price, savings = calculate_savings(cart_items)
+
+    # Send email with customer details
+    send_email(customer_email, customer_name, cart_items, total_price, savings)
+
+    # Empty the cart
+    empty_cart()
+
+    return render_template('return.html')
 
 
 @app.route('/create-checkout-session', methods=['POST'])
@@ -417,6 +450,74 @@ def load_user(user_id):
     print(f"in load_user {user_id}")
     return User.query.get(int(user_id))
 
+def send_email(customer_email, customer_name, products, subtotal, savings):
+    # Establish a connection to the SMTP server
+    with smtplib.SMTP("smtp.gmail.com", port=587) as connection:
+        connection.starttls()
+        connection.login(user=MY_EMAIL, password=MY_PASSWORD)
+
+        # Create the email subject
+        subject = 'Your Order'
+
+        # Create the email body
+        letter_body = f"<h1>Your Order {customer_name}</h1>"
+
+        letter_body += "<div style='display: flex; flex-wrap: wrap;'>"
+        for cart_item, product in products:
+            # Generate HTML markup for each product including quantity, description, and price
+            product_html = """
+                <div class="col mb-5" style="flex: 1 1 300px;">
+                    <div class="card h-100">
+                        <!-- Product page link and image-->
+                        <a href="{product_link}">
+                            <img class="card-img-top" src="{pic_url}" alt="..." style="width: auto; height: 400px;" />
+                        </a>
+                        <!-- Product details including quantity, description, and price -->
+                        <div class="card-body p-4">
+                            <div class="text-center">
+                                <!-- Product name-->
+                                <h5 class="fw-bolder">{product_name}</h5>
+                                <!-- Product quantity -->
+                                <p>Quantity: {quantity}</p>
+                                <!-- Product description -->
+                                <p>Description: {description}</p>
+                                <!-- Product price-->
+                                <span>${price}</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            """.format(product_link=url_for('product', product_id=product.id),
+                       pic_url=product.pic_url,
+                       product_name=product.name,
+                       quantity=cart_item.quantity,  # Include quantity
+                       description=product.description,  # Include description
+                       price=product.price)
+            letter_body += product_html
+        letter_body += "</div>"
+
+        # Add subtotal and total savings
+        letter_body += f"<h2 class='mb-3'>Subtotal: ${subtotal}</h2>"
+        letter_body += f"<p>Total Savings: ${savings}</p>"
+
+        # Add order processing message
+        letter_body += "<p>We are currently processing your order and will send you an email when the products have been shipped.</p>"
+
+        # Create a MIMEText object and set the content type to text/html with UTF-8 encoding
+        message = MIMEMultipart()
+        message.attach(MIMEText(letter_body, 'html', 'utf-8'))
+        message['subject'] = subject
+        message['from'] = MY_EMAIL
+        message['to'] = customer_email
+
+        # Send the email
+        connection.send_message(message)
+
+def test_func():
+    cart_items = get_cart_items()
+    print(cart_items)
+
+# test_func()
 if __name__ == "__main__":
     # app.run(host='0.0.0.0', port=5050, debug=True)
     app.run(port=4242, debug=True)
