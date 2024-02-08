@@ -133,10 +133,7 @@ def cart():
     return render_template("cart.html", cart_items=cart_items,
                            subtotal=total_price, savings=savings)
 
-
-
-@app.route('/add-to-cart/<int:product_id>', methods=["POST"])
-def add_to_cart(product_id):
+def check_if_authenticated_user():
     if current_user.is_authenticated:
         user_id = current_user.id
     else:
@@ -144,6 +141,11 @@ def add_to_cart(product_id):
         if 'anonymous_user_id' not in session:
             session['anonymous_user_id'] = str(uuid4())
         user_id = session['anonymous_user_id']
+    return user_id
+
+@app.route('/add-to-cart/<int:product_id>', methods=["POST"])
+def add_to_cart(product_id):
+    user_id = check_if_authenticated_user()
 
     existing_item = ShoppingCart.query.filter_by(user_id=user_id, product_id=product_id).first()
 
@@ -160,12 +162,14 @@ def add_to_cart(product_id):
     # Return a JSON response indicating success
     return jsonify({'success': True})
 
-@app.route('/change-item-quantity/<int:product_id>', methods=["GET", "POST"])
+
+@app.route('/change-item-quantity/<int:product_id>', methods=["POST"])
 def change_item_quantity(product_id):
     new_quantity = int(request.form['quantity-input'])
-    print(f"new_quantity {new_quantity}")
-    with app.app_context():
-        quantity_to_update = ShoppingCart.query.filter_by(product_id=product_id).first()
+    user_id = check_if_authenticated_user()
+    quantity_to_update = ShoppingCart.query.filter_by(product_id=product_id, user_id=user_id).first()
+
+    if quantity_to_update:
         if new_quantity > 0:
             quantity_to_update.quantity = new_quantity
         else:
@@ -184,16 +188,17 @@ def get_cart_count():
     return jsonify({'cart_count': cart_count})
 
 
-@app.route('/empty-cart', methods=['POST'])
+# @app.route('/empty-cart', methods=['POST'])
 def empty_cart():
     # Code to empty the cart goes here
     # For example:
     # delete all items from the shopping cart for the current user
-    print(f"in empty cart {current_user.id}")
-    ShoppingCart.query.filter_by(user_id=current_user.id).delete()
+    user_id = check_if_authenticated_user()
+    print(f"in empty cart {user_id}")
+    ShoppingCart.query.filter_by(user_id=user_id).delete()
     db.session.commit()
 
-    return jsonify({'success': True})
+    # return jsonify({'success': True})
 
 
 def add_all_products_to_stripe():
@@ -250,6 +255,7 @@ def checkout():
 
 @app.route('/return.html')
 def return_page():
+    empty_cart()
     return render_template('return.html')
 
 

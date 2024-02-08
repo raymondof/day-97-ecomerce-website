@@ -60,11 +60,28 @@ document.addEventListener('DOMContentLoaded', function() {
                 newValue = max;
             }
             quantityInput.value = newValue;
-            // Submit the form after updating the input field
-            document.getElementById('quantity-form').submit();
+
+            // Create a FormData object and append the new quantity value
+            var formData = new FormData();
+            formData.append('quantity-input', newValue);
+
+            // Fetch the URL for changing item quantity and submit the form data
+            fetch('/change-item-quantity/' + quantityInput.dataset.productId, {
+                method: 'POST',
+                body: formData
+            })
+            .then(response => {
+                // Handle the response as needed
+                console.log('Quantity updated successfully');
+            })
+            .catch(error => {
+                // Handle errors
+                console.error('An error occurred:', error);
+            });
         }
     });
 });
+
 
 
 
@@ -74,7 +91,6 @@ document.addEventListener('DOMContentLoaded', function() {
     // Function to update the cart count
     function updateCartCount() {
         // Perform an AJAX request to fetch the current cart count from the server
-        // You need to implement this AJAX request endpoint in your Flask application
         fetch('/get-cart-count')
             .then(response => response.json())
             .then(data => {
@@ -85,43 +101,65 @@ document.addEventListener('DOMContentLoaded', function() {
                 console.error('Error fetching cart count:', error);
             });
     }
-});
 
-document.addEventListener('DOMContentLoaded', function() {
-    var quantityInputs = document.querySelectorAll('.quantity-input');
-    console.log('Found quantity inputs:', quantityInputs);
-    quantityInputs.forEach(function(quantityInput) {
-        quantityInput.addEventListener('input', function(event) {
-            console.log('Input field value:', quantityInput.value);
-            // Add other debug logs as needed
-            // Your existing code follows...
-        });
+    // Add event listener to the "Add to Cart" buttons only once
+    var addToCartButtons = document.querySelectorAll('.add-to-cart-btn');
+    addToCartButtons.forEach(function(button) {
+        if (!button.dataset.addToCartListener) {
+            button.dataset.addToCartListener = true; // Mark button as having event listener
+            button.addEventListener('click', function(event) {
+                event.preventDefault(); // Prevent the default form submission
+
+                // Get the product ID from the data attribute of the button
+                var productId = button.dataset.productId;
+
+                // Make an AJAX request to add the item to the cart
+                fetch('/add-to-cart/' + productId, { method: 'POST' })
+                    .then(response => {
+                        if (response.ok) {
+                            // If the item was successfully added to the cart, update the cart count
+                            updateCartCount();
+                        } else {
+                            console.error('Failed to add item to cart:', response.statusText);
+                        }
+                    })
+                    .catch(error => {
+                        console.error('Error adding item to cart:', error);
+                    });
+            });
+        }
     });
 });
 
-// script.js
 
 $(document).ready(function() {
-    $('.add-to-cart-btn').click(function(event) {
-        event.preventDefault(); // Prevent the default form submission
+    // Add event listener to the "Add to Cart" buttons only once
+    $('.add-to-cart-btn').each(function() {
+        var $this = $(this);
+        if (!$this.data('addToCartListener')) {
+            $this.data('addToCartListener', true); // Mark button as having event listener
+            $this.click(function(event) {
+                event.preventDefault(); // Prevent the default form submission
 
-        // Get the product ID from the data attribute of the button
-        var productId = $(this).data('product-id');
+                // Get the product ID from the data attribute of the button
+                var productId = $this.data('product-id');
 
-        // Make an AJAX request to your Flask route
-        $.ajax({
-            type: 'POST',
-            url: '/add-to-cart/' + productId,
-            success: function(response) {
-                // Handle the success response here, for example, you could display a success message
-                alert('Item added to cart successfully!');
-            },
-            error: function(xhr, status, error) {
-                // Handle any errors that occur during the AJAX request
-                console.error(error);
-                alert('An error occurred while adding the item to the cart.');
-            }
-        });
+                // Make an AJAX request to your Flask route
+                $.ajax({
+                    type: 'POST',
+                    url: '/add-to-cart/' + productId,
+                    success: function(response) {
+                        // Handle the success response here, for example, you could display a success message
+                        alert('Item added to cart successfully!');
+                    },
+                    error: function(xhr, status, error) {
+                        // Handle any errors that occur during the AJAX request
+                        console.error(error);
+                        alert('An error occurred while adding the item to the cart.');
+                    }
+                });
+            });
+        }
     });
 });
 
