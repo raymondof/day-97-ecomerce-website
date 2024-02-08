@@ -47,47 +47,9 @@ document.addEventListener('DOMContentLoaded', function () {
     }
 });
 
-document.addEventListener('DOMContentLoaded', function() {
-    var quantityInput = document.getElementById('quantity-input');
-    quantityInput.addEventListener('input', function(event) {
-        var newValue = parseInt(quantityInput.value);
-        if (!isNaN(newValue)) {
-            var min = parseInt(quantityInput.min);
-            var max = parseInt(quantityInput.max);
-            if (newValue < min) {
-                newValue = min;
-            } else if (newValue > max) {
-                newValue = max;
-            }
-            quantityInput.value = newValue;
-
-            // Create a FormData object and append the new quantity value
-            var formData = new FormData();
-            formData.append('quantity-input', newValue);
-
-            // Fetch the URL for changing item quantity and submit the form data
-            fetch('/change-item-quantity/' + quantityInput.dataset.productId, {
-                method: 'POST',
-                body: formData
-            })
-            .then(response => {
-                // Handle the response as needed
-                console.log('Quantity updated successfully');
-            })
-            .catch(error => {
-                // Handle errors
-                console.error('An error occurred:', error);
-            });
-        }
-    });
-});
 
 
-
-
-document.addEventListener('DOMContentLoaded', function() {
-    updateCartCount(); // Update the cart count when the page loads
-
+$(document).ready(function() {
     // Function to update the cart count
     function updateCartCount() {
         // Perform an AJAX request to fetch the current cart count from the server
@@ -95,72 +57,41 @@ document.addEventListener('DOMContentLoaded', function() {
             .then(response => response.json())
             .then(data => {
                 // Update the cart count in the header
-                document.getElementById('cart-count').textContent = data.cart_count;
+                $('#cart-count').text(data.cart_count);
             })
             .catch(error => {
                 console.error('Error fetching cart count:', error);
             });
     }
 
-    // Add event listener to the "Add to Cart" buttons only once
-    var addToCartButtons = document.querySelectorAll('.add-to-cart-btn');
-    addToCartButtons.forEach(function(button) {
-        if (!button.dataset.addToCartListener) {
-            button.dataset.addToCartListener = true; // Mark button as having event listener
-            button.addEventListener('click', function(event) {
-                event.preventDefault(); // Prevent the default form submission
+    // Add event listener to the "Add to Cart" buttons
+    $('.add-to-cart-btn').click(function(event) {
+        event.preventDefault(); // Prevent the default form submission
 
-                // Get the product ID from the data attribute of the button
-                var productId = button.dataset.productId;
+        // Get the product ID from the data attribute of the button
+        var productId = $(this).data('product-id');
 
-                // Make an AJAX request to add the item to the cart
-                fetch('/add-to-cart/' + productId, { method: 'POST' })
-                    .then(response => {
-                        if (response.ok) {
-                            // If the item was successfully added to the cart, update the cart count
-                            updateCartCount();
-                        } else {
-                            console.error('Failed to add item to cart:', response.statusText);
-                        }
-                    })
-                    .catch(error => {
-                        console.error('Error adding item to cart:', error);
-                    });
+        // Make an AJAX request to add the item to the cart
+        fetch('/add-to-cart/' + productId, { method: 'POST' })
+            .then(response => {
+                if (response.ok) {
+                    // If the item was successfully added to the cart, update the cart count
+                    updateCartCount();
+                } else {
+                    console.error('Failed to add item to cart:', response.statusText);
+                    // Optionally, display an error message
+                    alert('An error occurred while adding the item to the cart.');
+                }
+            })
+            .catch(error => {
+                console.error('Error adding item to cart:', error);
+                // Optionally, display an error message
+                alert('An error occurred while adding the item to the cart.');
             });
-        }
     });
-});
 
-
-$(document).ready(function() {
-    // Add event listener to the "Add to Cart" buttons only once
-    $('.add-to-cart-btn').each(function() {
-        var $this = $(this);
-        if (!$this.data('addToCartListener')) {
-            $this.data('addToCartListener', true); // Mark button as having event listener
-            $this.click(function(event) {
-                event.preventDefault(); // Prevent the default form submission
-
-                // Get the product ID from the data attribute of the button
-                var productId = $this.data('product-id');
-
-                // Make an AJAX request to your Flask route
-                $.ajax({
-                    type: 'POST',
-                    url: '/add-to-cart/' + productId,
-                    success: function(response) {
-                        // Handle the success response here, for example, you could display a success message
-                        alert('Item added to cart successfully!');
-                    },
-                    error: function(xhr, status, error) {
-                        // Handle any errors that occur during the AJAX request
-                        console.error(error);
-                        alert('An error occurred while adding the item to the cart.');
-                    }
-                });
-            });
-        }
-    });
+    // Update the cart count when the page loads
+    updateCartCount();
 });
 
 
