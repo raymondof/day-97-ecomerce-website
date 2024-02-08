@@ -1,4 +1,4 @@
-from flask import Flask, render_template, redirect, url_for, flash, jsonify, request
+from flask import Flask, render_template, redirect, url_for, flash, jsonify, request, session
 from flask_bootstrap import Bootstrap5
 from flask_ckeditor import CKEditor
 from datetime import date
@@ -11,6 +11,7 @@ from functools import wraps
 import os
 import stripe
 import json
+from uuid import uuid4
 
 
 stripe.api_key = os.environ["STRIPE_API_KEY_TEST1"]
@@ -105,10 +106,18 @@ def products_by_category(category):
 def about():
     return render_template("about.html")
 
+
 def get_cart_items():
-    user_id = current_user.id
-    # products_in_cart = ShoppingCart.query.filter_by(user_id=user_id)
-    # prod_product = Product.query.filter_by()
+    if current_user.is_authenticated:
+        user_id = current_user.id
+    else:
+        # Check if the anonymous user ID is stored in the session
+        if 'anonymous_user_id' in session:
+            user_id = session['anonymous_user_id']
+        else:
+            # If no anonymous user ID is found, return an empty list or handle it as needed
+            return []
+
     cart_items = db.session.query(ShoppingCart, Product).join(Product, Product.id == ShoppingCart.product_id).filter(ShoppingCart.user_id == user_id).all()
     return cart_items
 
@@ -124,10 +133,17 @@ def cart():
     return render_template("cart.html", cart_items=cart_items,
                            subtotal=total_price, savings=savings)
 
-@app.route('/add-to-cart/<int:product_id>', methods=["GET", "POST"])
+
+
+@app.route('/add-to-cart/<int:product_id>', methods=["POST"])
 def add_to_cart(product_id):
-    user_id = current_user.id
-    print(user_id)
+    if current_user.is_authenticated:
+        user_id = current_user.id
+    else:
+        # Generate a unique identifier for anonymous users
+        if 'anonymous_user_id' not in session:
+            session['anonymous_user_id'] = str(uuid4())
+        user_id = session['anonymous_user_id']
 
     existing_item = ShoppingCart.query.filter_by(user_id=user_id, product_id=product_id).first()
 
@@ -141,13 +157,8 @@ def add_to_cart(product_id):
 
     db.session.commit()
 
-    # new_prod_to_cart = ShoppingCart(product_id=product_id, user_id=user_id, quantity=1)
-    # db.session.add(new_prod_to_cart)
-    # db.session.commit()
-
     # Return a JSON response indicating success
     return jsonify({'success': True})
-
 
 @app.route('/change-item-quantity/<int:product_id>', methods=["GET", "POST"])
 def change_item_quantity(product_id):
@@ -171,6 +182,18 @@ def get_cart_count():
     cart_count = sum(cart_item.quantity for cart_item, product in cart_items)
 
     return jsonify({'cart_count': cart_count})
+
+
+@app.route('/empty-cart', methods=['POST'])
+def empty_cart():
+    # Code to empty the cart goes here
+    # For example:
+    # delete all items from the shopping cart for the current user
+    print(f"in empty cart {current_user.id}")
+    ShoppingCart.query.filter_by(user_id=current_user.id).delete()
+    db.session.commit()
+
+    return jsonify({'success': True})
 
 
 def add_all_products_to_stripe():
